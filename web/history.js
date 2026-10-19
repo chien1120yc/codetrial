@@ -342,6 +342,9 @@ export async function deleteReport(
       // Only a count of 0 is a miss. A 200 whose body did not parse still ran
       // the delete, and calling that missing would hide a removal.
       const body = await deleted.json().catch(() => null);
+      // A confirmed account save must also have a confirmed account delete.
+      // Another tab may have switched to an account that does not own this id.
+      if (account && body?.deleted === 0) return "failed";
       fromAccount = body?.deleted !== 0;
     } else if (account !== false) {
       return "failed";

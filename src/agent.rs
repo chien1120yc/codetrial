@@ -3071,6 +3071,7 @@ pub struct DataEventResult {
     pub update_last_interjection: bool,
     pub generate_reply: Option<String>,
     pub finish_interview: Option<String>,
+    pub skip_report: bool,
     /// Some only when the pause state genuinely changed, so a browser asking
     /// twice for what it already has publishes nothing.
     pub pause_changed: Option<bool>,

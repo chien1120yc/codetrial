@@ -74,7 +74,7 @@ test("interview history routes through the shared persistence helper", () => {
   );
   assert.match(
     saveHistory,
-    /await saveReportHistory\(entry,\s*\{\s*persistAccount:\s*!state\.isGuest,\s*\}\)/,
+    /saveReportHistory\(entry,\s*\{\s*persistAccount:\s*!state\.isGuest,\s*\}\)/,
   );
   assert.match(saveHistory, /reportIsPersisted\(result\)/);
   assert.match(saveHistory, /state\.reportPersisted = true/);
@@ -1040,7 +1040,7 @@ test("deleting an id no store holds says so instead of claiming a removal", asyn
       storage,
       fetcher: signedIn(0),
     }),
-    "missing",
+    "failed",
   );
   // The account held it though this device did not, which is still a removal.
   assert.equal(
@@ -1217,4 +1217,46 @@ test("a stored history that is not a list reads as no history", () => {
   }
   // And unparseable JSON keeps the answer it already had.
   assert.deepEqual(stored("{not json"), []);
+});
+
+test("account-required deletion cannot discard a local report after zero server deletions", async () => {
+  const storage = memoryStorage();
+  const original = JSON.stringify([{ id: "saved-by-account-a" }]);
+  storage.setItem(historyKey, original);
+  const calls = [];
+
+  const result = await deleteReport("saved-by-account-a", {
+    account: true,
+    storage,
+    fetcher: async (url, options) => {
+      calls.push([url, options?.method]);
+      return url === "/api/session"
+        ? response({ signedIn: true })
+        : response({ deleted: 0 });
+    },
+  });
+
+  assert.equal(result, "failed");
+  assert.equal(storage.getItem(historyKey), original);
+  assert.deepEqual(calls, [
+    ["/api/session", undefined],
+    ["/api/reports/saved-by-account-a", "DELETE"],
+  ]);
+});
+
+test("account-required deletion succeeds after a confirmed server deletion", async () => {
+  const storage = memoryStorage();
+  storage.setItem(historyKey, JSON.stringify([{ id: "saved-by-account-a" }]));
+
+  const result = await deleteReport("saved-by-account-a", {
+    account: true,
+    storage,
+    fetcher: async (url) =>
+      url === "/api/session"
+        ? response({ signedIn: true })
+        : response({ deleted: 1 }),
+  });
+
+  assert.equal(result, "deleted");
+  assert.deepEqual(JSON.parse(storage.getItem(historyKey)), []);
 });
